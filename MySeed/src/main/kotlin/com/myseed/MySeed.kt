@@ -169,7 +169,9 @@ class MySeed : MainAPI() {
             return
         }
 
-        val page = runCatching { app.get(link, headers = headers).document }.getOrNull()
+        val page = runCatching {
+            app.get(link, headers = headers + ("Referer" to referer)).document
+        }.getOrNull()
         val directVideo = page?.selectFirst("video[src], video source[src]")
             ?.let { it.absUrl("src").ifBlank { it.attr("src") } }
         if (!directVideo.isNullOrBlank()) {
@@ -220,7 +222,7 @@ class MySeed : MainAPI() {
 
         for (qualityText in qualities) {
             val serverElements = if (qualityText == currentQuality) {
-                doc.select(".servers__list li[data-link]")
+                doc.select(".servers__list li[data-server]")
             } else {
                 if (postId == null || csrf == null) emptyList()
                 else runCatching {
@@ -234,19 +236,49 @@ class MySeed : MainAPI() {
                         headers = requestHeaders,
                         referer = watchUrl
                     )
-                    val html = JSONObject(response.text).optString("html")
-                    if (html.isBlank()) emptyList() else Jsoup.parse(html).select("li[data-link]")
+                    val json = JSONObject(response.text)
+                    val html = json.optString("html")
+                    if (json.optString("type") != "success" || html.isBlank()) emptyList()
+                    else Jsoup.parse(html).select("li[data-server]")
                 }.getOrElse { emptyList() }
             }
 
             for (server in serverElements) {
-                val rawLink = server.attr("data-link")
+                val serverIndex = server.attr("data-server")
+                val serverQuality = server.attr("data-qu").ifBlank { qualityText }
+                val serverPostId = server.attr("data-post").ifBlank { postId.orEmpty() }
+                val serverName = server.attr("data-server-name")
+                    .ifBlank { server.text().trim() }
+                    .ifBlank { "MySeed" }
+
+                // Quality AJAX responses contain server IDs, not playable links. The website
+                // makes a second POST when a server is clicked; mirror that request here.
+                val resolvedLink = if (postId != null && csrf != null && serverIndex.isNotBlank()) {
+                    runCatching {
+                        val response = app.post(
+                            "$mainUrl/get__watch__server/",
+                            data = mapOf<String, String>(
+                                "post_id" to serverPostId,
+                                "quality" to serverQuality,
+                                "server" to serverIndex,
+                                "csrf_token" to csrf
+                            ),
+                            headers = requestHeaders,
+                            referer = watchUrl
+                        )
+                        val json = JSONObject(response.text)
+                        if (json.optString("type") == "success") json.optString("server") else ""
+                    }.getOrDefault("")
+                } else {
+                    ""
+                }
+
+                val rawLink = resolvedLink.ifBlank { server.attr("data-link") }
                 val link = if (rawLink.startsWith("/")) "$mainUrl$rawLink" else rawLink
                 if (link.isBlank()) continue
-                val key = "$qualityText|$link"
+                val key = "$serverQuality|$link"
                 if (!seen.add(key)) continue
-                val serverName = server.attr("data-server-name").ifBlank { server.text().trim() }.ifBlank { "MySeed" }
-                loadServerLink(link, watchUrl, subtitleCallback, callback, qualityValue(qualityText), serverName)
+                loadServerLink(link, watchUrl, subtitleCallback, callback, qualityValue(serverQuality), serverName)
             }
         }
 
