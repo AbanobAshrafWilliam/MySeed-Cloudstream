@@ -1,0 +1,7 @@
+{
+  "name": "MySeed Cloudstream",
+  "description": "إضافة ماي سيد MySeed للأفلام والمسلسلات العربية والأجنبية",
+  "iconUrl": "https://m.myseed.tv/wp-content/uploads/2025/01/cropped-favicon-192x192.png",
+  "manifestVersion": 1,
+  "pluginLists": ["https://raw.githubusercontent.com/AbanobAshrafWilliam/MySeed-Cloudstream/builds/plugins.json"]
+}
