@@ -9,7 +9,7 @@
             "AbanobAshrafWilliam"
         ],
         "description": "\u0625\u0636\u0627\u0641\u0629 \u0645\u0648\u0642\u0639 \u0645\u0627\u064a \u0633\u064a\u062f MySeed \u0644\u0644\u0623\u0641\u0644\u0627\u0645 \u0648\u0627\u0644\u0645\u0633\u0644\u0633\u0644\u0627\u062a",
-        "fileSize": 12245,
+        "fileSize": 15551,
         "repositoryUrl": "https://github.com/AbanobAshrafWilliam/MySeed-Cloudstream",
         "language": "ar",
         "tvTypes": [
@@ -18,6 +18,6 @@
         ],
         "iconUrl": "https://m.myseed.tv/wp-content/uploads/2025/01/cropped-favicon-192x192.png",
         "apiVersion": 1,
-        "fileHash": "sha256-357aae0c0714093ddf48b1b3c915741c2a63453b51568f001da2801994094b2e"
+        "fileHash": "sha256-d59238b26b6570fcd50771a0d35ae85b56e4fdbc954f7685e5a2002a1a5a6e3f"
     }
 ]
