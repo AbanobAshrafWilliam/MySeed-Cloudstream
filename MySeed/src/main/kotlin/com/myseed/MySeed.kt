@@ -37,7 +37,9 @@ class MySeed : MainAPI() {
     private fun Element.toSearchResult(): SearchResponse? {
         val href = absUrl("href").ifBlank { attr("href") }
         if (href.isBlank()) return null
-        val title = attr("title").ifBlank { selectFirst("h3")?.text() }.trim()
+        val title = attr("title").takeIf { it.isNotBlank() }
+            ?: selectFirst("h3")?.text()?.trim()
+            ?: ""
         if (title.isBlank()) return null
         val poster = selectFirst("img")?.let { it.attr("data-src").ifBlank { it.attr("src") } }
         val isSeries = title.contains("مسلسل") || href.contains("series")
@@ -79,10 +81,9 @@ class MySeed : MainAPI() {
         val doc = app.get("$data/watch/", headers = headers).document
         doc.select(".servers__list li[data-link]").forEach { server ->
             val link = server.attr("data-link").let { if (it.startsWith("/")) "$mainUrl$it" else it }
-            val quality = server.attr("data-qu").toIntOrNull() ?: Qualities.Unknown.value
             if (link.isNotBlank()) {
                 loadExtractor(link, data, subtitleCallback) { extracted ->
-                    callback(extracted.copy(quality = quality))
+                    callback(extracted)
                 }
             }
         }
