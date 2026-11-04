@@ -96,6 +96,23 @@ class MySeed : MainAPI() {
         }
 
         val page = runCatching { app.get(link, headers = headers).document }.getOrNull()
+        val directVideo = page?.selectFirst("video[src], video source[src]")
+            ?.let { it.absUrl("src").ifBlank { it.attr("src") } }
+
+        if (!directVideo.isNullOrBlank()) {
+            callback(
+                newExtractorLink(
+                    source = name,
+                    name = "MySeed Direct",
+                    url = directVideo
+                ) {
+                    this.referer = link
+                    this.quality = Qualities.P1080.value
+                }
+            )
+            return
+        }
+
         val embeddedLinks = page?.select("iframe[src], video source[src]")
             ?.map { it.absUrl("src").ifBlank { it.attr("src") } }
             ?.filter { it.isNotBlank() }
@@ -117,12 +134,21 @@ class MySeed : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val doc = app.get("$data/watch/", headers = headers).document
+        val watchUrl = if (data.contains("/watch/")) data else "${data.trimEnd('/')}/watch/"
+        val doc = app.get(watchUrl, headers = headers).document
+
+        val playerLink = doc.selectFirst("#asPlayerFrame iframe[src], .player__iframe iframe[src]")
+            ?.attr("src")
+            ?.let { fixUrl(it) }
+
+        if (!playerLink.isNullOrBlank()) {
+            loadServerLink(playerLink, watchUrl, subtitleCallback, callback)
+            return true
+        }
+
         doc.select(".servers__list li[data-link]").forEach { server ->
             val link = server.attr("data-link").let { if (it.startsWith("/")) "$mainUrl$it" else it }
-            if (link.isNotBlank()) {
-                loadServerLink(link, data, subtitleCallback, callback)
-            }
+            if (link.isNotBlank()) loadServerLink(link, watchUrl, subtitleCallback, callback)
         }
         return true
     }
