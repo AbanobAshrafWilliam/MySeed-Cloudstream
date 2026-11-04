@@ -2,6 +2,7 @@ package com.myseed
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import android.util.Base64
 import org.jsoup.nodes.Element
 
 class MySeed : MainAPI() {
@@ -72,6 +73,44 @@ class MySeed : MainAPI() {
         }
     }
 
+    private fun decodeMySeedWrapper(url: String): String? {
+        if (!url.contains("m.myseed.pics/vid/?id=")) return null
+        return runCatching {
+            val encoded = url.substringAfter("id=").substringBefore("&")
+            val padded = encoded + "=".repeat((4 - encoded.length % 4) % 4)
+            String(Base64.decode(padded, Base64.URL_SAFE or Base64.NO_WRAP))
+        }.getOrNull()
+    }
+
+    private suspend fun loadServerLink(
+        link: String,
+        referer: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+        depth: Int = 0
+    ) {
+        val decoded = decodeMySeedWrapper(link)
+        if (!decoded.isNullOrBlank()) {
+            loadExtractor(decoded, referer, subtitleCallback, callback)
+            return
+        }
+
+        val page = runCatching { app.get(link, headers = headers).document }.getOrNull()
+        val embeddedLinks = page?.select("iframe[src], video source[src]")
+            ?.map { it.absUrl("src").ifBlank { it.attr("src") } }
+            ?.filter { it.isNotBlank() }
+            ?.distinct()
+            .orEmpty()
+
+        if (embeddedLinks.isEmpty() || depth >= 2) {
+            loadExtractor(link, referer, subtitleCallback, callback)
+        } else {
+            embeddedLinks.forEach { embedded ->
+                loadServerLink(embedded, link, subtitleCallback, callback, depth + 1)
+            }
+        }
+    }
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -82,9 +121,7 @@ class MySeed : MainAPI() {
         doc.select(".servers__list li[data-link]").forEach { server ->
             val link = server.attr("data-link").let { if (it.startsWith("/")) "$mainUrl$it" else it }
             if (link.isNotBlank()) {
-                loadExtractor(link, data, subtitleCallback) { extracted ->
-                    callback(extracted)
-                }
+                loadServerLink(link, data, subtitleCallback, callback)
             }
         }
         return true
