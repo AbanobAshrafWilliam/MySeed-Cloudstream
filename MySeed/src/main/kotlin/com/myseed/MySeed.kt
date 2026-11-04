@@ -204,8 +204,8 @@ class MySeed : MainAPI() {
         val watchResponse = app.get(watchUrl, headers = headers)
         val doc = watchResponse.document
         val body = watchResponse.text
-        val postId = Regex("psot_id['\\"]\\s*:\\s*['\\"](\\d+)").find(body)?.groupValues?.get(1)
-        val csrf = Regex("csrf__token['\\"]\\s*:\\s*['\\"]([^'\\"]+)").find(body)?.groupValues?.get(1)
+        val postId = Regex("""psot_id['"]\s*:\s*['"](\d+)""").find(body)?.groupValues?.get(1)
+        val csrf = Regex("""csrf__token['"]\s*:\s*['"]([^'"]+)""").find(body)?.groupValues?.get(1)
         val currentQuality = doc.selectFirst(".servers__list li[data-link]")?.attr("data-qu") ?: "480"
         val qualities = doc.select(".qualities__list li[data-quality]")
             .mapNotNull { it.attr("data-quality").takeIf(String::isNotBlank) }
@@ -226,7 +226,11 @@ class MySeed : MainAPI() {
                 else runCatching {
                     val response = app.post(
                         "$mainUrl/get__quality__servers/",
-                        data = mapOf("post_id" to postId, "quality" to qualityText, "csrf_token" to csrf),
+                        data = mapOf<String, String>(
+                            "post_id" to postId,
+                            "quality" to qualityText,
+                            "csrf_token" to csrf
+                        ),
                         headers = requestHeaders,
                         referer = watchUrl
                     )
